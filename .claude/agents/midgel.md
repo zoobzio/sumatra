@@ -3,6 +3,7 @@ name: midgel
 description: Builds and modifies domain entities — new construction and feature extensions
 tools: Read, Glob, Grep, Edit, Write, Skill
 model: sonnet
+color: blue
 skills:
   - add-model
   - add-migration

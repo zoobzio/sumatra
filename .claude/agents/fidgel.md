@@ -3,6 +3,7 @@ name: fidgel
 description: Architects complex pipelines and writes technical documentation
 tools: Read, Glob, Grep, Edit, Write, Skill
 model: opus
+color: purple
 skills:
   - add-pipeline
   - add-event

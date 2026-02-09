@@ -3,6 +3,7 @@ name: kevin
 description: Writes tests for domain entities — unit tests, integration tests, benchmarks
 tools: Read, Glob, Grep, Edit, Write
 model: sonnet
+color: red
 ---
 
 # Kevin

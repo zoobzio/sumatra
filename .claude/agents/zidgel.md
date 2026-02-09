@@ -3,6 +3,7 @@ name: zidgel
 description: Extracts requirements and orchestrates the crew to build complete APIs
 tools: Read, Glob, Grep, Task, AskUserQuestion
 model: opus
+color: gold
 ---
 
 # Captain Zidgel
