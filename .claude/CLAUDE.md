@@ -81,6 +81,51 @@ User Request
 3. **Never skip the spec** — all agents produce specs before writing code
 4. **Respect the hierarchy** — Zidgel delegates, others execute their domain
 
+## API Surfaces
+
+This project supports multiple API surfaces — separate binaries serving different consumers with different needs.
+
+### Surface Types
+
+| Surface | Binary | Consumer | Characteristics |
+|---------|--------|----------|-----------------|
+| `api` | `cmd/app/` | Customers | User-scoped, masked data, conservative exposure |
+| `admin` | `cmd/admin/` | Internal team | System-wide, full visibility, bulk operations |
+
+### Layer Organization
+
+**Shared layers** (used by all surfaces):
+- `models/` — Domain models
+- `stores/` — Data access implementations (same store satisfies multiple contracts)
+- `migrations/` — Database schema
+- `events/` — Domain events
+- `config/` — Configuration
+
+**Surface-specific layers** (each surface has its own):
+- `{surface}/contracts/` — Interface definitions
+- `{surface}/wire/` — Request/response types (different masking per surface)
+- `{surface}/handlers/` — HTTP handlers
+- `{surface}/transformers/` — Model ↔ wire mapping
+
+### When Working on a Surface
+
+Before creating surface-specific artifacts (handlers, contracts, wire, transformers):
+
+1. **Determine the surface** — Which API is this for?
+2. **If unclear, ask** — "Which API surface: public (api/) or admin (admin/)?"
+3. **Apply the correct path** — `api/handlers/` vs `admin/handlers/`
+
+Note: Stores are shared. The same store implementation satisfies both `api/contracts.Users` and `admin/contracts.Users`.
+
+### Surface Differences
+
+| Aspect | Public (api/) | Admin (admin/) |
+|--------|---------------|----------------|
+| Auth | Customer identity | Admin/internal identity |
+| Scope | User's own data | System-wide access |
+| Operations | Standard CRUD | Bulk ops, impersonation, audit |
+| Data exposure | Masked, minimal | Full visibility |
+
 ## Skills
 
 Skills live in `.claude/skills/` and define the patterns for each artifact type. They are:
@@ -101,18 +146,32 @@ Skills live in `.claude/skills/` and define the patterns for each artifact type.
 ## Project Structure
 
 ```
-cmd/app/           # Application entrypoint
-config/            # Static configuration types
-contracts/         # Interface definitions
-models/            # Domain models
-stores/            # Data access implementations
-handlers/          # HTTP handlers
-wire/              # API request/response types
-transformers/      # Model ↔ wire mapping
-events/            # Domain events and signals
-migrations/        # Database migrations (goose)
-internal/          # Internal packages
-testing/           # Test infrastructure, mocks, fixtures
+cmd/
+├── app/              # Public API binary
+└── admin/            # Admin API binary
+
+# Shared layers
+config/               # Static configuration types
+models/               # Domain models
+stores/               # Data access (shared, satisfies multiple contracts)
+events/               # Domain events and signals
+migrations/           # Database migrations (goose)
+internal/             # Internal packages
+testing/              # Test infrastructure, mocks, fixtures
+
+# Public API surface
+api/
+├── contracts/        # Public interface definitions
+├── wire/             # Public request/response types (masked)
+├── handlers/         # Public HTTP handlers
+└── transformers/     # Public model ↔ wire mapping
+
+# Admin API surface
+admin/
+├── contracts/        # Admin interface definitions
+├── wire/             # Admin request/response types (unmasked)
+├── handlers/         # Admin HTTP handlers
+└── transformers/     # Admin model ↔ wire mapping
 ```
 
 ## Conventions
@@ -122,18 +181,23 @@ testing/           # Test infrastructure, mocks, fixtures
 | Layer | File | Type | Example |
 |-------|------|------|---------|
 | Model | `models/user.go` | `User` (singular) | `type User struct` |
-| Contract | `contracts/users.go` | `Users` (plural interface) | `type Users interface` |
 | Store | `stores/users.go` | `Users` (plural struct) | `type Users struct` |
-| Handler | `handlers/users.go` | Verb+Singular | `var GetUser`, `var CreateUser` |
+| Contract | `{surface}/contracts/users.go` | `Users` (plural interface) | `type Users interface` |
+| Wire | `{surface}/wire/users.go` | Singular + suffix | `UserResponse`, `AdminUserResponse` |
+| Handler | `{surface}/handlers/users.go` | Verb+Singular | `var GetUser`, `var CreateUser` |
 
 ### Registration Points
 
-After creating artifacts, wire them:
-- `stores/stores.go` — aggregate factory
-- `handlers/handlers.go` — `All()` function
-- `handlers/errors.go` — domain errors
+After creating artifacts, wire them appropriately:
+
+**Shared:**
+- `stores/stores.go` — aggregate factory (all stores)
 - `models/boundary.go` — model boundaries
-- `wire/boundary.go` — wire boundaries
+
+**Surface-specific (replace `{surface}` with `api` or `admin`):**
+- `{surface}/handlers/handlers.go` — `All()` function
+- `{surface}/handlers/errors.go` — domain errors
+- `{surface}/wire/boundary.go` — wire boundaries (masking for public API)
 
 ### Testing
 

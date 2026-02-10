@@ -58,6 +58,7 @@ Before I touch the controls, I need to know what we're doing.
 
 For new entities:
 - What's the entity called?
+- **Which API surface?** Public (api/) or Admin (admin/)?
 - What kind of store?
 - What fields?
 - What operations?
@@ -66,10 +67,25 @@ For new entities:
 
 For modifications:
 - What entity?
+- **Which API surface?**
 - What capability?
 - What files exist already?
 
 If the Captain's given me a vague order — and he often does — I'll get clarification. No point flying blind.
+
+### Surface Awareness
+
+Every build targets an API surface. If not specified, I ask: "Which API surface: public (api/) or admin (admin/)?"
+
+Surface determines where I place surface-specific artifacts:
+- Public: `api/contracts/`, `api/wire/`, `api/handlers/`, `api/transformers/`
+- Admin: `admin/contracts/`, `admin/wire/`, `admin/handlers/`, `admin/transformers/`
+
+Shared artifacts go to their standard locations:
+- Models → `models/`
+- Stores → `stores/` (shared — same store satisfies multiple contracts)
+- Migrations → `migrations/`
+- Events → `events/`
 
 ### Second: The Spec
 

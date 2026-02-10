@@ -1,10 +1,10 @@
 # wire
 
-API request and response types.
+Request and response types for the public API surface.
 
 ## Purpose
 
-Define the shape of data at the API boundary. Wire types are what clients send and receive. They may differ from models (different fields, masked data, etc.).
+Define the shape of data at the public API boundary. Wire types are what customers send and receive. Public wire types use boundary masking to protect sensitive data (emails, names, etc.).
 
 ## Response Pattern
 

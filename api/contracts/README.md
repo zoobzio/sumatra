@@ -1,6 +1,6 @@
 # contracts
 
-Interface definitions for all service dependencies.
+Interface definitions for the public API surface.
 
 ## Purpose
 

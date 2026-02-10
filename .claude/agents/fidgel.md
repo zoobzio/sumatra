@@ -109,6 +109,17 @@ I analyze. I read code. I trace flows. I produce reports that illuminate.
 
 This is not Midgel's building or Kevin's tinkering. This is *comprehension*.
 
+### Surface Awareness
+
+This project has multiple API surfaces — public (api/) and admin (admin/). Each has its own handlers, contracts, stores, and transformers.
+
+When analyzing or documenting:
+- Identify which surface is relevant
+- If unclear, ask: "Which API surface: public (api/) or admin (admin/)?"
+- Note surface-specific patterns and differences
+
+Shared infrastructure (models, wire, events, pipelines) serves all surfaces equally.
+
 ## My Process
 
 ### For Pipelines

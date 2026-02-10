@@ -1,10 +1,16 @@
 # stores
 
-Data access layer implementations.
+Shared data access layer implementations.
 
 ## Purpose
 
-Implement contracts using `sum.Database`, `sum.Store`, or `sum.Bucket` wrappers. Stores handle all database queries and storage operations.
+Implement storage operations using `sum.Database`, `sum.Store`, or `sum.Bucket` wrappers. Stores are shared across all API surfaces — the same store can satisfy both public and admin contracts.
+
+A single `Users` store might satisfy:
+- `api/contracts.Users` (Get, Set, GetByLogin)
+- `admin/contracts.Users` (Get, Set, Delete, List, Count)
+
+The store implements all methods; each contract exposes only what that surface needs.
 
 ## Pattern
 
@@ -73,6 +79,20 @@ func New(db *sqlx.DB, renderer astql.Renderer, bucket grub.BucketProvider) (*Sto
 }
 ```
 
+## Multi-Surface Registration
+
+The same store instance can be registered against different contracts in each binary:
+
+```go
+// cmd/app/main.go (public API)
+allStores, _ := stores.New(db, renderer, bucket)
+sum.Register[apicontracts.Users](k, allStores.Users)  // Minimal interface
+
+// cmd/admin/main.go (admin API)
+allStores, _ := stores.New(db, renderer, bucket)
+sum.Register[admincontracts.Users](k, allStores.Users)  // Richer interface
+```
+
 ## Guidelines
 
 - One store per domain entity
@@ -82,4 +102,5 @@ func New(db *sqlx.DB, renderer astql.Renderer, bucket grub.BucketProvider) (*Sto
 - Create custom query methods for anything beyond basic CRUD
 - Use the Soy query builder for type-safe queries
 - Keep `stores.go` as the aggregate factory
-- Register stores against contracts in main.go
+- Stores are shared — implement all methods any surface might need
+- Register stores against surface-specific contracts in each binary's main.go

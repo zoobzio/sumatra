@@ -1,6 +1,6 @@
 # transformers
 
-Pure functions for mapping between models and wire types.
+Pure functions for mapping between models and wire types for the public API surface.
 
 ## Purpose
 

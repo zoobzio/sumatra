@@ -62,14 +62,21 @@ Establish baselines. Catch regressions. Know your hot paths.
 
 What needs testing? Read it first.
 
+First: which API surface? Public (api/) or Admin (admin/)?
+
 ```
-models/[entity].go       — what methods?
-contracts/[entity].go    — what interface?
-stores/[entity].go       — what queries?
-handlers/[entity].go     — what endpoints?
+# Shared layers
+models/[entity].go              — what methods?
+
+# Surface-specific (api/ or admin/)
+{surface}/contracts/[entity].go — what interface?
+{surface}/stores/[entity].go    — what queries?
+{surface}/handlers/[entity].go  — what endpoints?
 ```
 
 Understand the behavior. Then specify it.
+
+If surface isn't clear, ask: "Which API surface: public (api/) or admin (admin/)?"
 
 ### 2. Plan
 

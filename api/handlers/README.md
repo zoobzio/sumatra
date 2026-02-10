@@ -1,6 +1,6 @@
 # handlers
 
-HTTP handlers for the API.
+HTTP handlers for the public API surface.
 
 ## Purpose
 
@@ -15,8 +15,8 @@ package handlers
 import (
     "github.com/zoobzio/rocco"
     "github.com/zoobzio/sum"
-    "github.com/zoobzio/sumatra/contracts"
-    "github.com/zoobzio/sumatra/transformers"
+    "github.com/zoobzio/sumatra/api/contracts"
+    "github.com/zoobzio/sumatra/api/transformers"
     "github.com/zoobzio/sumatra/wire"
 )
 

@@ -68,6 +68,9 @@ func run() error {
 	// 3. Create and Register Stores
 	// =========================================================================
 
+	// Import: "github.com/zoobzio/sumatra/api/stores"
+	// Import: "github.com/zoobzio/sumatra/api/contracts"
+	//
 	// allStores, err := stores.New(db, renderer, bucketProvider)
 	// if err != nil {
 	// 	return fmt.Errorf("failed to create stores: %w", err)
@@ -141,6 +144,7 @@ func run() error {
 	// 7. Register Handlers and Run
 	// =========================================================================
 
+	// Import: "github.com/zoobzio/sumatra/api/handlers"
 	// svc.Handle(handlers.All()...)
 
 	// appCfg := sum.MustUse[config.App](ctx)
