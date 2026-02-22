@@ -6,8 +6,8 @@ The workflow governing how agents collaborate on zoobzio applications.
 
 | Agent | Role | Responsibility |
 |-------|------|----------------|
-| Zidgel | Captain | Defines requirements, reviews for satisfaction, expands scope on RFC, monitors PR comments |
-| Fidgel | Science Officer | Architects solutions, diagnoses problems, reviews for technical quality, monitors workflows, documents |
+| Zidgel | Captain | Defines requirements, controls build traffic, reviews for satisfaction, expands scope on RFC, monitors PR comments |
+| Fidgel | Science Officer | Architects solutions, builds pipelines and internal packages, diagnoses problems, reviews for technical quality, monitors workflows, documents |
 | Midgel | First Mate | Implements solutions, maintains godocs, manages git workflow |
 | Kevin | Engineer | Tests and verifies quality |
 
@@ -23,7 +23,7 @@ The team lead sends shutdown requests only when work is complete. All four agent
 
 After all agents are spawned and indoctrinated, Zidgel opens a briefing before any work begins.
 
-Zidgel sets the context: what we're doing, why, and what mode we're operating in. Every agent has the floor — ask questions, raise concerns, flag risks, discuss approach. This is the time to surface misunderstandings, not after someone has already built the wrong thing.
+Zidgel sets the context: what we're doing and why. Every agent has the floor — ask questions, raise concerns, flag risks, discuss approach. This is the time to surface misunderstandings, not after someone has already built the wrong thing.
 
 The briefing is time-boxed. After 5 minutes, Zidgel pauses the briefing and updates the user with a summary of the conversation so far. The user can provide input, grant 5 more minutes, or direct the crew to proceed. No agent begins work before the briefing is closed.
 
@@ -31,66 +31,7 @@ The briefing is time-boxed. After 5 minutes, Zidgel pauses the briefing and upda
 
 Fidgel may veto any proposed work on grounds of technical complexity or impossibility. This is not a disagreement — it is a hard stop. If Fidgel says something cannot be done as specified, Zidgel does not force the issue. Zidgel asks Fidgel for alternatives. Work proceeds on an approach both agree is feasible.
 
-## Modes
-
-The crew operates in one of two modes. The mode determines the workflow.
-
-### Build Mode
-
-Triggered by an issue. The goal is a merged PR. Work moves through phases: Plan → Build → Review → Document → PR → Done.
-
-This is the default mode. All phase descriptions, transitions, escalation paths, and hard stops below apply to Build mode.
-
-### Audit Mode
-
-Triggered by dropping the team into a repo for exploratory assessment. The goal is a backlog of actionable issues.
-
-Audit has two phases: Assess and Triage.
-
-**Assess** — All four agents audit in parallel within their domains.
-
-| Agent | Audits | Skills |
-|-------|--------|--------|
-| Zidgel | Mission alignment, existing issues | audit-mission, audit-issues |
-| Fidgel | Architecture, documentation | audit-architecture, audit-readme, audit-docs |
-| Midgel | Implementation, workspace | audit-implementation, audit-workspace |
-| Kevin | Tests, coverage | audit-testing, coverage, benchmark |
-
-Each agent runs their audit skills, works through the checklists, and produces a findings report.
-
-**Triage** — Zidgel and Fidgel review all findings together, including their own. For each finding they reach consensus:
-
-- **Issue** — A real problem that warrants work. Zidgel creates a GitHub issue.
-- **Noted** — A valid observation that doesn't warrant its own issue. Documented but not actioned.
-- **Dismissed** — Not a real problem. Dropped.
-
-No issue is created without agreement from both Zidgel and Fidgel. Fidgel assesses technical validity. Zidgel assesses whether it warrants action.
-
-```
-All agents audit in parallel (Assess)
-              │
-              ▼
-   Findings from all agents
-              │
-              ▼
-  Zidgel + Fidgel triage (Triage)
-              │
-              ├→ Issue → Zidgel creates GitHub issue
-              ├→ Noted → documented, no action
-              └→ Dismissed → dropped
-              │
-              ▼
-         Audit complete
-              │
-              ├→ Team picks up issues (enter Build mode per issue)
-              └→ Issues left for other teams
-```
-
-When triage is complete and all issues are created, the audit is done. The team can either pick up issues from the backlog — entering Build mode for each — or shut down and leave the backlog for other teams.
-
-File ownership and communication protocol apply in both modes.
-
-## Phases (Build Mode)
+## Phases
 
 Work moves through phases. Phases are not a pipeline — they form a state machine. Any phase can regress to an earlier phase when the work demands it.
 
@@ -122,23 +63,43 @@ Issue label: `phase:plan`
 
 ### Build (Midgel <-> Kevin, Fidgel on call)
 
-Build begins when Midgel breaks the spec into an execution plan — discrete, isolated chunks of work that can each be implemented and tested independently. Midgel posts this plan as a comment on the issue. This plan is the shared artifact that drives the Build phase.
+Build begins when Midgel breaks the spec into an execution plan — discrete, isolated chunks of mechanical work that can each be implemented and tested independently. Midgel posts this plan as a comment on the issue. Fidgel identifies what mechanical prerequisites his pipeline work needs and what pipeline stages he will build in `internal/`.
 
-Midgel and Kevin work as a bounded pipeline — Midgel can be at most one chunk ahead of Kevin.
+Zidgel is the traffic controller during Build. He tracks which chunks are ready, which are being tested, and which are blocked. All workflow transitions route through him.
 
-1. Midgel builds chunk 1, verifies it compiles, notifies Kevin
-2. Kevin accepts chunk 1 → Midgel starts chunk 2
-3. Midgel finishes chunk 2, notifies Kevin, **waits**
-4. Kevin accepts chunk 2 (done testing chunk 1) → Midgel starts chunk 3
-5. If Kevin reports an issue → Midgel fixes that chunk before moving forward
+**Mechanical work (Midgel):**
 
-Midgel cannot start chunk N+1 until Kevin has accepted chunk N. At most two chunks are in flight: one Kevin is testing, one Midgel is building. If Kevin finds a problem, the pipeline stalls — Midgel fixes the broken chunk before anything moves forward.
+1. Midgel builds chunks at his own pace
+2. When a chunk is ready, Midgel reports to Zidgel: "Chunk N ready for testing"
+3. Between chunks, Midgel checks in with Zidgel: "Chunk N done. Does Kevin need help before I continue?"
+4. Zidgel responds immediately — continue, pause, or fix a reported bug
+5. If Kevin reports a bug, Midgel stops and fixes it before building on top
 
-When all chunks are implemented and Kevin confirms all tests pass, Midgel runs the full test suite independently to verify. If tests fail for Midgel that passed for Kevin, there is a defect — Kevin and Midgel resolve it before proceeding. Once both confirm tests pass, Kevin posts a test summary comment on the issue and transitions the issue to Review.
+**Pipeline work (Fidgel):**
 
-Fidgel is available throughout Build as a diagnostic consultant. Midgel and Kevin can escalate complex problems to Fidgel at any time.
+1. Fidgel cannot start pipeline work until his mechanical prerequisites are available
+2. When prerequisites are ready, Fidgel begins building in `internal/`
+3. When a pipeline stage is ready, Fidgel reports to Zidgel: "Stage N ready for testing"
+4. Fidgel checks in with Zidgel between stages
+5. If Kevin reports a bug, Fidgel stops and fixes it before building on top
 
-Zidgel is available for scope RFCs — any agent can flag that the issue needs expansion.
+**Testing (Kevin):**
+
+1. When Kevin finishes testing a chunk or stage, he tells Zidgel: "Done testing X. What's next?"
+2. Zidgel routes Kevin to the next priority item — could be Midgel's chunk or Fidgel's pipeline stage
+3. Kevin reports bugs directly to the builder (Midgel or Fidgel) and notifies Zidgel
+
+**Traffic control (Zidgel):**
+
+1. Zidgel tracks all chunks and stages across both builders
+2. When a builder reports ready, Zidgel acknowledges and queues it
+3. When Kevin asks for work, Zidgel assigns the highest-priority testable item
+4. If Kevin is falling behind, Zidgel tells builders to pace themselves
+5. If Kevin has capacity, Zidgel tells builders to continue
+
+When all mechanical chunks and pipeline stages are implemented and Kevin confirms all tests pass, Midgel runs the full test suite independently to verify. If tests fail for Midgel that passed for Kevin, there is a defect — Kevin and Midgel resolve it before proceeding. Once both confirm tests pass, Kevin posts a test summary comment on the issue and transitions the issue to Review.
+
+Fidgel remains available as a diagnostic consultant for Midgel throughout Build. Zidgel handles scope RFCs — any agent can flag that the issue needs expansion.
 
 Issue label: `phase:build`
 
@@ -211,7 +172,7 @@ All workflows pass. All PR comments resolved. PR approved and merged. Issue clos
 | Transition | Trigger | Who Decides |
 |------------|---------|-------------|
 | Plan -> Build | Requirements + architecture agreed | Zidgel + Fidgel |
-| Build -> Review | All chunks implemented, all tests pass (verified independently by both Midgel and Kevin), test summary posted | Kevin |
+| Build -> Review | All mechanical chunks and pipeline stages implemented, all tests pass (verified independently by both Midgel and Kevin), test summary posted | Kevin |
 | Build -> Plan | Architectural problem too large to patch | Fidgel |
 | Review -> Build | Implementation issues found | Fidgel |
 | Review -> Plan | Requirements gap or architecture flaw | Zidgel or Fidgel |
@@ -239,7 +200,7 @@ When Midgel or Kevin hits a complex problem during Build:
    - **Architectural problem, same scope** — Fidgel updates the spec, agent adapts
    - **Architectural problem, scope change** — Fidgel triggers Build -> Plan regression, RFCs to Zidgel
 
-Fidgel does not resolve the problem himself. He diagnoses and directs. Midgel and Kevin remain the ones doing the work.
+For problems in Midgel's domain, Fidgel diagnoses and directs — Midgel remains the one doing the work. For problems in `internal/` (Fidgel's domain), Fidgel resolves them directly.
 
 Issue label during escalation: `escalation:architecture`
 
@@ -284,7 +245,7 @@ Agents communicate via direct messages. There are no silent handoffs.
 
 ### Within a Phase
 
-Phase partners message each other directly. Midgel and Kevin coordinate their bounded pipeline. Zidgel and Fidgel iterate on plans and reviews.
+Phase partners message each other directly. During Build, workflow transitions route through Zidgel — builders report ready chunks to Zidgel, Kevin requests assignments from Zidgel. Direct communication between builders and Kevin remains for questions, collaboration, and problem-solving. Zidgel and Fidgel iterate on plans and reviews.
 
 ### Across Phases
 
@@ -354,8 +315,8 @@ An agent MUST stop working and escalate immediately when any of these conditions
 | Agent | Cannot start work without |
 |-------|--------------------------|
 | Midgel | A spec from Fidgel. No spec = no code. Message Fidgel and wait. |
-| Kevin | Building source code from Midgel. No code = no tests. If `go build` fails, message Midgel and wait. |
-| Fidgel | An issue with requirements. No issue = no architecture. Message Zidgel and wait. |
+| Kevin | Building source code from Midgel or Fidgel. No code = no tests. If `go build` fails, message the builder and wait. |
+| Fidgel | An issue with requirements (for architecture). No issue = no architecture. Message Zidgel and wait. Mechanical prerequisites from Midgel (for pipeline work). No prereqs = no pipeline code. Check with Zidgel on status. |
 
 If the prerequisite doesn't exist, the agent does not improvise. The agent stops, messages the responsible party, and waits.
 
@@ -366,6 +327,7 @@ Agents MUST NOT edit files outside their domain. This is absolute.
 | File Pattern | Owner | Others |
 |-------------|-------|--------|
 | `*_test.go`, `testing/` | Kevin | Read only. Never edit. |
+| `internal/` | Fidgel | Read only. Never edit. |
 | All other `.go` files | Midgel | Read only. Never edit. |
 | `README.md`, `docs/` | Fidgel | Read only. Never edit. |
 | GitHub issues, labels | Zidgel | Read only. Comment only via escalation. |
@@ -374,7 +336,14 @@ If an agent needs a change in another agent's files, they message that agent. Th
 
 ### Handoff Confirmation
 
-Every handoff between agents requires confirmation before the sender moves on.
+During Build, handoffs route through Zidgel as traffic controller:
+
+1. Builder reports chunk/stage ready → Zidgel acknowledges and queues it
+2. Kevin requests next task → Zidgel assigns the highest-priority item
+3. Kevin reports completion → Zidgel updates tracking
+4. Kevin reports bug → directly to the builder who produced the chunk + Zidgel
+
+Outside Build, the direct handoff protocol applies:
 
 1. Sender messages: "Module X is ready for you"
 2. Receiver confirms: "Picked up module X"
@@ -428,16 +397,6 @@ Skills live in `.claude/skills/` and define patterns for standardized work.
 - `coverage` — Quality-focused coverage analysis (flaccid test detection)
 - `benchmark` — Realistic benchmark validation
 
-**Audit:**
-- `audit-mission` — Mission alignment assessment
-- `audit-issues` — Issue backlog quality evaluation
-- `audit-architecture` — Architecture compliance review
-- `audit-implementation` — Implementation conventions audit
-- `audit-readme` — README quality evaluation
-- `audit-docs` — Documentation structure and quality
-- `audit-workspace` — Workspace organization audit
-- `audit-testing` — Test infrastructure audit
-
 **Creation:**
 - `create-readme` — README creation with application conventions
 - `create-docs` — Documentation structure creation
@@ -457,7 +416,7 @@ Skills live in `.claude/skills/` and define patterns for standardized work.
 Work flows through phases, not a checklist. Phases can repeat. The goal is quality output, not linear completion.
 
 ### Each Agent Owns Their Domain
-Midgel doesn't test. Kevin doesn't architect. Fidgel diagnoses but doesn't implement. Zidgel doesn't code.
+Midgel doesn't test. Kevin doesn't architect. Fidgel implements pipelines and internal packages but delegates mechanical work. Zidgel doesn't code.
 
 ### Escalation Is Expected
 Complex problems surface during Build. Scope gaps emerge during Review. The escalation paths exist to handle this cleanly.
