@@ -12,9 +12,11 @@ Find where the architecture exposes unnecessary surface, violates its own princi
 ## Execution
 
 1. Read `checklist.md` in this skill directory
-2. Work through each phase — hunt for structural weakness
-3. For each finding, ask: "What would break if this assumption were wrong?"
-4. Compile findings into structured report
+2. Read `MISSION.md` — understand the application's stated purpose and goals
+3. Read `PHILOSOPHY.md` — understand the composition model and architectural principles to evaluate against
+4. Work through each phase — hunt for structural weakness
+5. For each finding, ask: "What would break if this assumption were wrong?"
+6. Compile findings into structured report
 
 ## Specifications
 

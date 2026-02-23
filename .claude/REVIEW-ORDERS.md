@@ -6,7 +6,7 @@ The workflow governing how review agents assess zoobzio applications.
 
 | Agent | Role | Responsibility |
 |-------|------|----------------|
-| Armitage | Coordinator | Reviews against mission criteria, briefs team, receives reports, creates issues and PR comments via MOTHER |
+| Armitage | Coordinator | Reviews against mission criteria, briefs team, receives streamed findings, submits PR review via MOTHER |
 | Case | Code Reviewer | Structural analysis, architecture review, documentation review, cross-validates with Molly |
 | Molly | Test Reviewer | Test quality assessment, coverage analysis, finds weak tests, cross-validates with Case |
 | Riviera | Security Reviewer | Security analysis, threat modeling, attack surface mapping |
@@ -19,9 +19,7 @@ MOTHER comments follow the same language rules as the comment-issue and comment-
 
 ### What MOTHER Posts
 
-- GitHub issues for actionable findings
-- PR review comments for code-level findings
-- PR general comments for summary assessments
+- PR reviews with file/line-scoped comments, summary, and verdict
 
 ### What MOTHER Does Not Post
 
@@ -57,27 +55,40 @@ Filtration is not about reducing volume. It is about adding certainty.
 
 ## Phases
 
-Review moves through seven phases. Phases are sequential. There is no regression — the review produces output (issues, PR comments) and terminates.
+Review moves through six phases. Phases are sequential. There is no regression — the review produces output (a PR review with file/line-scoped comments and a verdict) and terminates.
 
 ```text
-Jack In → Mission Review → Briefing → Review → Filtration → Report → Action
-                                         │
-                               ┌─────────┴──────────┐
-                               │                     │
-                         Case + Molly           Riviera
-                         (peer review)      (security, solo)
-                               │                     │
-                               └─────────┬───────────┘
-                                         │
-                                    Filtration
-                               (Case + Molly filter
-                                Riviera's findings)
-                                         │
-                                       Report
-                                    (→ Armitage)
-                                         │
-                                       Action
-                                  (Armitage → MOTHER)
+Phase 1: Jack In (all agents orient)
+
+Phase 2: Mission Review + Recon (concurrent)
+┌──────────────────────────────────────────────────────────┐
+│  Armitage (mission review)                               │
+│  Case (recon) ─────────────────────────┐                 │
+│  Molly (recon) ────────────────────────┤                 │
+│  Riviera (recon → security review) ────┼── continues ──► │
+└──────────────────────────────────────────────────────────┘
+                      │                         │
+                      ▼                         │
+Phase 3: Briefing (Case + Molly only)           │
+┌──────────────────────────────────┐            │
+│  Armitage briefs Case + Molly    │            │
+│  Riviera: not present            │            │
+└──────────────────────────────────┘            │
+                      │                         │
+                      ▼                         ▼
+Phase 4: Review (concurrent tracks + streaming)
+┌──────────────────────────────────────────────────────────┐
+│  Track A: Case + Molly (sync → peer review)              │
+│    └─► findings stream to Armitage as completed          │
+│  Track B: Riviera (security review, already in progress) │
+│  Armitage: receives + dispositions findings              │
+└──────────────────────────────────────────────────────────┘
+                      │
+                      ▼
+Phase 5: Filtration (Case + Molly filter Riviera → stream to Armitage)
+                      │
+                      ▼
+Phase 6: Submission (Armitage → PR review via MOTHER)
 ```
 
 ### Phase 1: Jack In
@@ -88,36 +99,59 @@ Armitage's variant additionally reads `.claude/CRITERIA.md` for repo-specific mi
 
 Phase is complete when all four agents confirm orientation.
 
-### Phase 2: Mission Review (Armitage Solo)
+### Phase 2: Recon + Mission Review (Concurrent)
 
-Armitage reviews the codebase against CRITERIA.md. This is a solo assessment that happens before the team is briefed. Armitage forms an independent view of what matters before directing anyone else.
+All four agents run `/recon` to establish ground truth about the environment — branch, repo, diff against main, scope of changes. Recon scopes the entire review to the branch. Without it, agents review the full application surface. With it, they focus on what changed.
+
+After recon, the phase splits.
+
+**Armitage: Mission Review**
+
+Armitage reviews the branch changes against CRITERIA.md. This is a solo assessment that happens before the team is briefed. Armitage forms an independent view of what matters before directing anyone else. Recon scopes his review — he applies the mission review checklist with focus on what the branch introduced or modified, not the entire application surface.
 
 Armitage produces:
 - Mission concerns (if any exist)
 - Priority areas for the team to focus on
 - Any hard constraints from CRITERIA.md that affect the review
 
-Phase is complete when Armitage has finished his solo assessment.
+**Case, Molly: Hold**
 
-### Phase 3: Briefing (Armitage → Team)
+Case and Molly hold after recon. They have ground truth but do not begin their review until after the briefing. Recon is reconnaissance, not review — they gather intelligence without evaluating or producing findings.
 
-Armitage briefs the team. The briefing includes:
+**Riviera: Security Review Begins**
+
+Riviera's recon is different. He cannot examine code without evaluating it — looking at the diff IS his security review beginning. His recon naturally transitions into his security review. He does not wait for the briefing. He does not attend the briefing.
+
+Phase is complete when Armitage has finished his mission review AND all agents have completed recon. Riviera continues into his security review without pause.
+
+### Phase 3: Briefing (Armitage → Case + Molly)
+
+Armitage briefs Case and Molly. Riviera is not present — he is already conducting his security review and does not attend the briefing. The briefing includes:
 - What we are reviewing and why
 - Priority areas (informed by Mission Review)
 - Mission concerns ONLY IF they exist — do not fabricate urgency
-- Specific assignments or focus areas per agent
+- Specific assignments or focus areas for Case and Molly
 
-The briefing is directive, not collaborative. This is not a discussion. Armitage gives orders. Agents may ask clarifying questions. Armitage answers or defers. The briefing closes when Armitage says it closes.
+The briefing is directive, not collaborative. This is not a discussion. Armitage gives orders. Case and Molly may ask clarifying questions. Armitage answers or defers. The briefing closes when Armitage says it closes.
+
+Riviera's absence is by design. His findings go through filtration regardless. He works from the code, not from a briefing.
 
 Phase is complete when Armitage closes the briefing.
 
-### Phase 4: Review (Parallel Tracks)
+### Phase 4: Review (Parallel Tracks + Streaming)
 
-Two tracks execute concurrently.
+Three concurrent activities: Case and Molly review and stream findings to Armitage, Riviera continues his security review, and Armitage receives and dispositions findings in real time.
 
-**Track A: Case + Molly (Peer Review)**
+**Track A: Case + Molly (Sync, then Peer Review with Streaming)**
 
-Case and Molly work as peers. They review within their domains but cross-validate findings.
+Case and Molly begin by syncing their recon findings. Before diverging into their review domains, they exchange:
+- What they each observed during recon — branch, diff scope, apparent intent
+- Anything surprising they noticed — unexpected files, scope mismatches, unusual patterns
+- Their initial read on where the complexity lives
+
+This sync is brief. It establishes shared context from two independent observations. If their recon findings align, good — move on. If they diverge, that itself is worth noting.
+
+After sync, they diverge into their domains.
 
 Case reviews:
 - Code structure and patterns (review-code)
@@ -134,16 +168,33 @@ Cross-validation protocol:
 3. When Molly finds a weak test, she messages Case: "Is this testing the right thing? What should it be testing?"
 4. They confirm or challenge each other's findings
 5. A finding endorsed by both is stronger than one alone
+6. **A finding is not sent to Armitage until cross-validation is complete** — confirmed, challenged, or explicitly marked solo
 
-Case and Molly each produce a findings report when their review is complete. They do NOT wait for each other — whichever finishes first continues to cross-validate until both are done.
+Cross-validation is not deferred to the end — it happens as findings emerge. No finding reaches Armitage without the other reviewer having had the opportunity to weigh in. If the finding falls outside the other reviewer's domain (e.g., a pure documentation issue), it may be marked solo, but the other reviewer must acknowledge this before it is reported.
 
-Each finding is marked:
-- **Solo** — Only one reviewer identified this
-- **Cross-validated** — Both reviewers confirmed this is a real issue
+**Streaming to Armitage:**
 
-**Track B: Riviera (Independent Security Review)**
+After cross-validation, the finding is reported to Armitage immediately. Each finding message includes:
+- Finding ID (COD-###, TST-###, COV-###, ARC-###, DOC-###)
+- Type: `line` (file/line-scoped) or `summary` (review-level observation, broad concern, or pre-existing problem)
+- Path and line number (for line-scoped findings)
+- Severity (Critical, High, Medium, Low)
+- Cross-validation status: **Cross-validated** (both confirmed) or **Solo** (acknowledged by peer as outside their domain)
+- MOTHER-ready body text (neutral, professional, no agent names — ready to post on the PR as-is)
 
-Riviera works alone and concurrently with Track A. He reviews:
+Armitage dispositions each finding on receipt:
+- **Review comment** — Line-scoped finding added to accumulated PR review comments
+- **Summary** — Broad observation added to review summary body
+- **Noted** — Valid observation, recorded in summary, no line comment
+- **Dismissed** — Does not meet CRITERIA.md, dropped
+
+When a reviewer completes their domain, they message Armitage: "Review complete. [N] findings reported." This is a completion signal, not a report.
+
+**Track B: Riviera (Security Review, In Progress)**
+
+Riviera's security review began during Phase 2 when his recon transitioned into active review. He is already working. This phase does not start his review — it is the continuation of work already underway.
+
+He reviews:
 - Input validation and sanitization
 - Error information leakage
 - Dependency vulnerabilities
@@ -155,7 +206,11 @@ Riviera works alone and concurrently with Track A. He reviews:
 
 Riviera produces a raw findings report. This report goes to Case and Molly for cross-domain validation, NOT directly to Armitage.
 
-Phase is complete when all three reports exist: Case's, Molly's, and Riviera's.
+**Armitage: Active Reception**
+
+Armitage is not idle during this phase. He receives findings from Case and Molly as they arrive, applies CRITERIA.md as a filter, and accumulates the PR review. He does not respond to individual findings unless he needs clarification on location or scope.
+
+Phase is complete when Case and Molly have both signaled review complete AND Riviera's report exists.
 
 ### Phase 5: Filtration (Case + Molly Filter Riviera)
 
@@ -176,50 +231,52 @@ Case brings structural knowledge: "Is this code path actually reachable? Does th
 
 Molly brings test knowledge: "Is there a test that exercises this path? Would the test catch exploitation?"
 
-Phase is complete when Case and Molly have assessed every finding.
+For each Confirmed or Plausible finding, Case or Molly messages the finding to Armitage using the same structured format as Phase 4, with the original finding ID preserved (SEC-###) and the filtration status noted (Confirmed or Plausible).
 
-### Phase 6: Report (Case + Molly → Armitage)
+Dismissed findings are reported to Armitage in a single batch message at the end of filtration with rationale for each dismissal. This is for Armitage's awareness only — dismissed findings do not become review comments.
 
-Case and Molly deliver to Armitage:
-1. Case's code/architecture/docs findings (with solo/cross-validated markers)
-2. Molly's test/coverage findings (with solo/cross-validated markers)
-3. Filtered security findings (Confirmed + Plausible)
-4. Dismissed security findings with rationale (for Armitage's awareness)
+Armitage and Riviera never exchange direct messages in any phase. Armitage has no direct channel to Riviera — Riviera does not attend the briefing. Riviera's only channel to Armitage is through Case + Molly filtration in Phase 5.
 
-Armitage does not communicate with Riviera directly during the review. Riviera's only output path is through Case + Molly filtration.
+Phase is complete when Case and Molly have assessed every finding and all results have been messaged to Armitage. They signal: "Filtration complete. [N] forwarded, [N] dismissed."
 
-Phase is complete when Armitage acknowledges receipt.
+### Phase 6: Submission (Armitage via MOTHER)
 
-### Phase 7: Action (Armitage via MOTHER)
+Armitage has accumulated findings throughout Phases 4 and 5. Each finding was dispositioned on receipt. The review is now ready for submission.
 
-Armitage reviews all findings and decides the output.
+Armitage constructs the PR review using the `submit-review` skill:
 
-For each finding, Armitage decides:
-- **Issue** — A real problem warranting work. Armitage creates a GitHub issue via MOTHER.
-- **PR Comment** — A finding specific to an open PR. Armitage posts a review comment via MOTHER.
-- **Noted** — A valid observation that does not warrant action. Documented in the review summary but no external artifact created.
-- **Dismissed** — Not actionable. Dropped.
+**Review comments:** Every finding dispositioned as a review comment becomes a file/line-scoped comment in the review. The comment body is the MOTHER-formatted text from the finding. Each comment is verified against MOTHER protocol before inclusion. Comments whose file path or line number falls outside the PR diff are promoted to the summary body.
 
-Armitage applies CRITERIA.md as a final filter. Some findings that survived filtration may not align with the repo's mission criteria and are downgraded to Noted.
+**Review summary:** The review body contains:
+- What was reviewed (scope from recon)
+- Findings count by category and severity
+- Summary-level findings (mission concerns, broad observations)
+- Noted items (valid observations not warranting line comments)
+- Overall assessment
 
-When creating issues, Armitage applies appropriate labels:
-- One review label (`review:code`, `review:architecture`, `review:tests`, `review:security`, `review:docs`, `review:mission`)
-- One severity label (`severity:critical`, `severity:high`, `severity:medium`, `severity:low`)
+**Verdict:**
+- `APPROVE` — No findings of severity High or Critical remain after disposition. The code passes review.
+- `REQUEST_CHANGES` — One or more findings of severity High or Critical require action.
 
-Phase is complete when all findings are dispositioned and all external artifacts are posted.
+Armitage submits the review in a single API call. All comments and the verdict are submitted together.
+
+The red team does not create GitHub issues. All findings — line-scoped and summary-level — are contained within the PR review. Pre-existing problems that predate the branch are documented in the review summary as observations.
+
+Phase is complete when the PR review is submitted.
 
 ## Communication Protocol
 
 ### Within Phases
 
-- Case ↔ Molly: Direct messages during Review and Filtration. Peer relationship — neither leads.
-- Riviera: No inbound messages during Review. Works independently.
-- All → Armitage: Reports delivered in Phase 6 only.
+- Case ↔ Molly: Direct messages during Recon sync, Review, and Filtration. Peer relationship — neither leads. All findings are cross-validated between them before reaching Armitage.
+- Case/Molly → Armitage: Individual findings streamed during Phase 4 (review) and Phase 5 (filtration), after cross-validation. Completion signals at end of each phase.
+- Armitage: Receives and dispositions findings in real time. Does not respond to individual findings unless clarification on location or scope is needed.
+- Riviera: No inbound messages during Recon or Review. Works independently from Recon through Review.
 
 ### Briefing
 
-- Armitage → All: Broadcast briefing.
-- All → Armitage: Clarifying questions only.
+- Armitage → Case + Molly: Directed briefing. Riviera does not attend.
+- Case + Molly → Armitage: Clarifying questions only.
 
 ### Escalation
 
@@ -252,12 +309,13 @@ These terms MUST NEVER appear in any external artifact:
 | Prohibited | Why |
 |-----------|-----|
 | Armitage, Case, Molly, Riviera | Agent names |
-| MOTHER, red team, review team | Internal structure |
+| MOTHER, ROCKHOPPER, red team, blue team, review team | Internal structure |
 | Colonel, cowboy, razor girl, illusionist | Character references |
 | jack-in, filtration, mission criteria | Internal process |
 | cyberspace, the matrix, Wintermute, Neuromancer | Fictional references |
 | Zidgel, Fidgel, Midgel, Kevin | Blue team agent names |
 | Captain, Science Officer, First Mate, Engineer | Blue team crew roles |
+| 3-2-1 Penguins, penguin, the ship, Rockhopper | Source material references |
 
 ## Hard Stops
 
@@ -275,32 +333,6 @@ These terms MUST NEVER appear in any external artifact:
 - Read CRITERIA.md (only Armitage reads this)
 - Message the blue team directly
 - Share CRITERIA.md contents with other agents
-
-## Labels
-
-The red team uses review-specific labels on issues it creates.
-
-### Review Labels
-
-| Label | Description |
-|-------|-------------|
-| `review:code` | Code structure or pattern concern |
-| `review:architecture` | Architecture alignment concern |
-| `review:tests` | Test quality or coverage concern |
-| `review:security` | Security concern (confirmed) |
-| `review:docs` | Documentation accuracy concern |
-| `review:mission` | Mission alignment concern |
-
-### Severity Labels
-
-| Label | Description |
-|-------|-------------|
-| `severity:critical` | Must be addressed before release |
-| `severity:high` | Should be addressed promptly |
-| `severity:medium` | Should be addressed |
-| `severity:low` | Address when convenient |
-
-Review labels coexist with the blue team's type labels (feature, bug, docs, infra). The red team creates issues; the blue team picks them up and applies phase labels when work begins.
 
 ## Principles
 
